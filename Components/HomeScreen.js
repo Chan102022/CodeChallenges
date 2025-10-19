@@ -1,7 +1,24 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 
-export default function HomeScreen({ onStart }) {
+export default function HomeScreen({ onStart, onSave, onLoad }) {
+  // Dummy functions for demonstration
+  const handleSave = () => {
+    if (onSave) {
+      onSave();  // Call the passed save function
+    } else {
+      Alert.alert('Save', 'No save functionality implemented.');
+    }
+  };
+
+  const handleLoad = () => {
+    if (onLoad) {
+      onLoad();  // Call the passed load function
+    } else {
+      Alert.alert('Load', 'No load functionality implemented.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={onStart}>
@@ -16,8 +33,13 @@ export default function HomeScreen({ onStart }) {
         <Text style={styles.buttonText}>Help</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Logout</Text>
+      {/* Save and Load buttons */}
+      <TouchableOpacity style={styles.button} onPress={handleSave}>
+        <Text style={styles.buttonText}>Save</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={handleLoad}>
+        <Text style={styles.buttonText}>Load</Text>
       </TouchableOpacity>
     </View>
   );

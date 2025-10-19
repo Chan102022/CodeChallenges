@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import AuthScreen from "./Components/AuthScreen";
@@ -7,30 +13,52 @@ import HomeScreen from "./Components/HomeScreen";
 import AdventureScreen from "./Components/AdventureScreen";
 import LeaderboardScreen from "./Components/LeaderboardScreen";
 import DailyQuestScreen from "./Components/DailyQuestScreen";
+import ProfileScreen from "./Components/ProfileScreen";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState("");
   const [activeNav, setActiveNav] = useState("Home");
 
+  // Auto-login if user already exists in AsyncStorage
   useEffect(() => {
-    const checkLogin = async () => {
-      const user = await AsyncStorage.getItem("user");
-      if (user) {
-        const parsed = JSON.parse(user);
-        setUsername(parsed.username);
-        setIsAuthenticated(true);  // If a user is already logged in
+    const checkUser = async () => {
+      const userJson = await AsyncStorage.getItem("user");
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        setUsername(user.username);
+        setIsAuthenticated(true);
       }
     };
-    checkLogin();
+    checkUser();
   }, []);
 
-  const handleSignOut = async () => {
-    await AsyncStorage.removeItem("user");  // Log out by removing user data
-    setIsAuthenticated(false);
-    setUsername("");  // Reset username on sign out
+  // Logout logic - Changed: Removed invalid navigation.reset (not needed for custom navigation)
+  const handleLogout = async () => {
+    try {
+      // Clear user data from AsyncStorage
+      await AsyncStorage.removeItem("user");
+
+      // Update authentication state and navigation
+      setIsAuthenticated(false);
+      setUsername("");
+      setActiveNav("Home");
+
+      // Show alert after logout
+      Alert.alert("Logged out", "You have been logged out.", [
+        {
+          text: "OK",
+          onPress: () => {
+            // Additional actions can go here if necessary
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
   };
 
+  // Render main screens after login
   const renderContent = () => {
     switch (activeNav) {
       case "Home":
@@ -42,30 +70,19 @@ export default function App() {
       case "Leaderboard":
         return <LeaderboardScreen />;
       case "Profile":
-        return (
-          <View>
-            <Text style={styles.contentText}>Welcome, {username}</Text>
-            <TouchableOpacity
-              onPress={handleSignOut}
-              style={[styles.navButton, { backgroundColor: "#f44336", marginTop: 20 }]}
-            >
-              <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
-                Sign Out
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
+        return <ProfileScreen onLogout={handleLogout} />;
       default:
         return null;
     }
   };
 
+  // Render auth screen if not logged in
   if (!isAuthenticated) {
     return (
       <AuthScreen
         onAuthSuccess={(name) => {
           setUsername(name);
-          setIsAuthenticated(true);  // Set authenticated state
+          setIsAuthenticated(true);
         }}
       />
     );
@@ -75,20 +92,27 @@ export default function App() {
     <View style={{ flex: 1 }}>
       {/* Top Navigation */}
       <View style={styles.navBar}>
-        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map((item) => (
-          <TouchableOpacity
-            key={item}
-            onPress={() => setActiveNav(item)}
-            style={[styles.navButton, activeNav === item && styles.navButtonActive]}
-          >
-            <Text style={[styles.navText, activeNav === item && styles.navTextActive]}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map(
+          (item) => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setActiveNav(item)}
+              style={[
+                styles.navButton,
+                activeNav === item && styles.navButtonActive,
+              ]}
+            >
+              <Text
+                style={[styles.navText, activeNav === item && styles.navTextActive]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )
+        )}
       </View>
 
-      {/* Content */}
+      {/* Screen Content */}
       <View style={styles.content}>{renderContent()}</View>
     </View>
   );
@@ -121,8 +145,5 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-  },
-  contentText: {
-    fontSize: 18,
   },
 });

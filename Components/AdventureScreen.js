@@ -1,25 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-// Sample challenges by level (can be more dynamic later)
-const generateChallenge = (category, level) => {
-  const difficulties = {
-    1: 'Easy',
-    2: 'Easy',
-    3: 'Medium',
-    4: 'Medium',
-    5: 'Medium',
-    6: 'Hard',
-    7: 'Hard',
-    8: 'Hard',
-    9: 'Very Hard',
-    10: 'Very Hard',
-  };
-
-  return `${category} Challenge - ${difficulties[level]} Level ${level}:\nSolve a ${difficulties[level]} problem.`;
-};
+import { 
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput 
+} from 'react-native';
 
 export default function AdventureScreen({ username }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -29,191 +11,145 @@ export default function AdventureScreen({ username }) {
   const [codeInput, setCodeInput] = useState('');
   const [executionResult, setExecutionResult] = useState(null);
 
-  // Create a unique key based on the category and username
-  const getStorageKey = (category) => `progress_${username}_${category}`;
+  const getStorageKey = (category) => `${username}_${category}`;
 
-  // Load progress from AsyncStorage when category is selected or username changes
   useEffect(() => {
-    const loadProgress = async () => {
+    // Simulating loading progress from local storage or default state
+    const loadProgress = () => {
       if (!selectedCategory) return;
 
-      const storageKey = getStorageKey(selectedCategory);
-      const data = await AsyncStorage.getItem(storageKey);
+      // Here, we simulate loading progress from local state
+      const storedProgress = {
+        unlockedLevel: 3,  // Example, can be adjusted
+        completedLevels: [1, 2]  // Example, can be adjusted
+      };
 
-      if (data) {
-        const parsed = JSON.parse(data);
-        setUnlockedLevel(parsed.unlockedLevel || 1);
-        setCompletedLevels(parsed.completedLevels || []);
-      } else {
-        setUnlockedLevel(1);  // Default starting point if no progress is found
-        setCompletedLevels([]); // Empty levels
-      }
+      setUnlockedLevel(storedProgress.unlockedLevel || 1);
+      setCompletedLevels(storedProgress.completedLevels || []);
     };
 
     loadProgress();
-  }, [username, selectedCategory]); // Load progress when username or selectedCategory changes
+  }, [username, selectedCategory]);
 
-  // Handle level selection
-  const handleLevelPress = async (level) => {
-  if (level > unlockedLevel) {
-    Alert.alert('Locked', `Complete Level ${level - 1} first.`);
-    return;
-  }
-
-  if (!selectedCategory) {
-    Alert.alert('Error', 'Please select a category first (Java or PHP).');
-    return;
-  }
-
-  console.log(`Fetching challenge for ${selectedCategory} at level ${level}`);
-
-  try {
-    // Make the API request to get the challenge based on selectedCategory
-    const res = await axios.get(`http://localhost:5000/api/questions/${selectedCategory.toLowerCase()}`);
-    
-    if (res.data) {
-      const challenge = res.data;
-      console.log('Challenge data received:', challenge);
-
-      setCurrentChallenge({
-        level,
-        question: challenge.question || `Solve a ${selectedCategory} level ${level} problem.`,
-        testCases: challenge.testCases || [],
-      });
-
-      setCodeInput(challenge.template || '');
-      setExecutionResult(null);  // Reset execution result
-    } else {
-      console.error('No data returned from API');
-      Alert.alert('Error', 'Could not load challenge.');
+  const handleLevelPress = (level) => {
+    if (!selectedCategory) {
+      Alert.alert('Error', 'Please select a category first (Java or PHP).');
+      return;
     }
-  } catch (error) {
-    console.error('Failed to fetch challenge:', error.message);
-    Alert.alert('Error', 'Could not load challenge. Please try again later.');
-  }
-};
 
+    if (level > unlockedLevel) {
+      Alert.alert('Locked', `Complete Level ${level - 1} first.`);
+      return;
+    }
 
-  // Handle level completion and save progress
-  const handleCompleteLevel = async () => {
+    // Simulate fetching a challenge for the selected category and level
+    const simulatedChallenge = {
+      question: `Solve a ${selectedCategory} level ${level} problem.`,
+      testCases: [{ input: 'test input' }],
+      template: `// Write your ${selectedCategory} code here`
+    };
+
+    setCurrentChallenge({
+      level,
+      question: simulatedChallenge.question,
+      testCases: simulatedChallenge.testCases,
+    });
+    setCodeInput(simulatedChallenge.template);
+    setExecutionResult(null);
+  };
+
+  const handleCompleteLevel = () => {
     if (!currentChallenge) return;
 
     const nextLevel = currentChallenge.level + 1;
-    const score = Math.floor(Math.random() * 30) + 70; // Example: random score for testing
+    const score = Math.floor(Math.random() * 30) + 70;
 
-    // Update the completed levels state
     const newCompletedLevels = [...completedLevels, currentChallenge.level];
     const newUnlockedLevel = nextLevel > unlockedLevel ? nextLevel : unlockedLevel;
 
     setCompletedLevels(newCompletedLevels);
     setUnlockedLevel(newUnlockedLevel);
 
-    // Save the updated progress to AsyncStorage
-    const storageKey = getStorageKey(selectedCategory);
-    await AsyncStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        unlockedLevel: newUnlockedLevel,
-        completedLevels: newCompletedLevels,
-      })
-    );
+    // Simulate saving progress to local storage
+    const newProgress = {
+      unlockedLevel: newUnlockedLevel,
+      completedLevels: newCompletedLevels,
+    };
 
-    // Submit score to leaderboard (optional)
-    try {
-      const token = await AsyncStorage.getItem('token');
-      await axios.post(
-        'http://localhost:5000/api/leaderboard/submit',
-        {
-          category: selectedCategory,
-          score: score,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      console.log('Score submitted!');
-    } catch (err) {
-      console.error('Failed to submit score', err);
-    }
+    // You can save this locally in AsyncStorage or elsewhere as needed
 
-    // Clear current challenge after completion
     setCurrentChallenge(null);
     Alert.alert('Great!', `Level ${currentChallenge.level} completed.`);
   };
 
-  // Handle code execution
-  const handleRunCode = async () => {
-    try {
-      const res = await axios.post('http://localhost:5000/api/execute', {
-        language: selectedCategory.toLowerCase(),
-        sourceCode: codeInput,
-        input: currentChallenge?.testCases?.[0]?.input || '',
-      });
+  const handleRunCode = () => {
+    // Simulate code execution and show the result
+    const simulatedResult = { output: 'Code executed successfully!', stderr: '' };
+    setExecutionResult(simulatedResult);
+  };
 
-      setExecutionResult(res.data);
-    } catch (error) {
-      console.error('Code execution failed:', error.message);
-      Alert.alert('Error', 'Failed to run code.');
+  const handleReattemptLevel = (level) => {
+    if (completedLevels.includes(level)) {
+      Alert.alert('Reattempt', 'You have already completed this level.');
+      return;
     }
+
+    setCurrentChallenge({
+      level,
+      question: `Reattempt the level ${level} challenge.`,
+      testCases: [],
+    });
+    setCodeInput('');
+    setExecutionResult(null);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Adventure Mode</Text>
 
-      {/* Category Buttons */}
       <View style={styles.categoryContainer}>
         <TouchableOpacity
           style={[styles.categoryButton, selectedCategory === 'Java' && styles.selectedCategoryButton]}
-          onPress={() => {
-            setSelectedCategory('Java');
-          }}
+          onPress={() => setSelectedCategory('Java')}
+          disabled={!!currentChallenge} // Disable Java button if there's a current challenge
         >
           <Text style={styles.buttonText}>Java</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.categoryButton, selectedCategory === 'PHP' && styles.selectedCategoryButton]}
-          onPress={() => {
-            setSelectedCategory('PHP');
-          }}
+          onPress={() => setSelectedCategory('PHP')}
+          disabled={!!currentChallenge} // Disable PHP button if there's a current challenge
         >
           <Text style={styles.buttonText}>PHP</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Levels */}
       {selectedCategory && !currentChallenge && (
-        <ScrollView contentContainerStyle={styles.buttonContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.levelContainer} showsVerticalScrollIndicator={false}>
           {Array.from({ length: 10 }, (_, i) => {
             const level = i + 1;
             const isUnlocked = level <= unlockedLevel;
             const isCompleted = completedLevels.includes(level);
 
-            let displayText = `${selectedCategory} - Level ${level}`;
-            if (isCompleted) {
-              displayText += ' ✅';
-            } else if (!isUnlocked) {
-              displayText += ' 🔒';
-            }
+            let displayText = `Level ${level}`;
+            if (isCompleted) displayText += ' ✅';
+            else if (!isUnlocked) displayText += ' 🔒';
 
             return (
               <TouchableOpacity
                 key={level}
-                style={[styles.button, !isUnlocked && styles.lockedButton, isCompleted && styles.completedButton]}
+                style={[styles.levelButton, !isUnlocked && styles.lockedButton, isCompleted && styles.completedButton]}
                 onPress={() => handleLevelPress(level)}
                 disabled={!isUnlocked}
               >
-                <Text style={styles.buttonText}>{displayText}</Text>
+                <Text style={styles.levelButtonText}>{displayText}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       )}
 
-      {/* Challenge View */}
       {currentChallenge && (
         <ScrollView style={styles.challengeBox}>
           <Text style={styles.challengeTitle}>Level {currentChallenge.level} Challenge</Text>
@@ -249,6 +185,13 @@ export default function AdventureScreen({ username }) {
           <TouchableOpacity style={styles.completeButton} onPress={handleCompleteLevel}>
             <Text style={styles.buttonText}>Mark as Done ✅</Text>
           </TouchableOpacity>
+
+          {/* Button to reattempt a previous level */}
+          {currentChallenge.level > 1 && (
+            <TouchableOpacity style={styles.reattemptButton} onPress={() => handleReattemptLevel(currentChallenge.level - 1)}>
+              <Text style={styles.buttonText}>Reattempt Level {currentChallenge.level - 1}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
     </View>
@@ -259,7 +202,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    alignItems: 'center',
     paddingTop: 60,
     paddingHorizontal: 20,
   },
@@ -267,12 +209,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#4CAF50',
+    textAlign: 'center',
     marginBottom: 20,
   },
   categoryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
     marginBottom: 20,
   },
   categoryButton: {
@@ -286,36 +228,37 @@ const styles = StyleSheet.create({
   selectedCategoryButton: {
     backgroundColor: '#4CAF50',
   },
-  buttonContainer: {
-    alignItems: 'center',
-    paddingBottom: 40,
-  },
-  button: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 8,
-    marginVertical: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  lockedButton: {
-    backgroundColor: '#BDBDBD',
-  },
-  completedButton: {
-    backgroundColor: '#81C784',
-  },
   buttonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
   },
+  levelContainer: {
+    paddingBottom: 20,
+  },
+  levelButton: {
+    backgroundColor: '#A5D6A7',
+    paddingVertical: 15,
+    marginVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  lockedButton: {
+    backgroundColor: '#c8e6c9',
+    opacity: 0.6,
+  },
+  completedButton: {
+    backgroundColor: '#4CAF50',
+  },
+  levelButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   challengeBox: {
-    marginTop: 30,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 10,
     padding: 20,
-    width: '100%',
     elevation: 2,
   },
   challengeTitle: {
@@ -330,45 +273,46 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   codeLabel: {
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 5,
-    marginTop: 15,
-    color: '#4CAF50',
   },
   codeEditor: {
-    borderColor: '#ccc',
+    height: 180,
+    borderColor: '#4CAF50',
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 10,
-    minHeight: 120,
     fontFamily: 'monospace',
-    backgroundColor: '#f0f0f0',
-    marginBottom: 10,
+    marginBottom: 15,
+    backgroundColor: '#f0fff0',
   },
   runButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
+    backgroundColor: '#4CAF50',
+    padding: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   outputBox: {
-    backgroundColor: '#e0f2f1',
-    padding: 10,
-    borderRadius: 6,
+    backgroundColor: '#e8f5e9',
+    padding: 15,
+    borderRadius: 8,
     marginBottom: 15,
   },
   outputTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#00796B',
+    color: '#388e3c',
   },
   outputText: {
-    fontFamily: 'monospace',
-    color: '#333',
+    fontSize: 14,
+    color: '#2e7d32',
+    marginTop: 4,
   },
   completeButton: {
     backgroundColor: '#4CAF50',
-    paddingVertical: 15,
+    padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
