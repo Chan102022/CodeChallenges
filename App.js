@@ -1,62 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import AuthScreen from "./Components/AuthScreen";
 import HomeScreen from "./Components/HomeScreen";
 import AdventureScreen from "./Components/AdventureScreen";
 import LeaderboardScreen from "./Components/LeaderboardScreen";
 import DailyQuestScreen from "./Components/DailyQuestScreen";
-
-function AuthScreen({ onAuthSuccess }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSignIn = async () => {
-    if (!username || !password) {
-      alert("Please enter username and password");
-      return;
-    }
-
-    const storedUser = await AsyncStorage.getItem(username);
-    console.log("Stored User from AsyncStorage:", storedUser); // Debugging line to check the stored data
-
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      console.log("Parsed User:", parsed);  // Debugging line to check the parsed data
-      if (parsed.password === password) {
-        await AsyncStorage.setItem("user", JSON.stringify(parsed)); // persist login
-        console.log("User authenticated successfully.");
-        onAuthSuccess(parsed.username);  // Pass username on successful login
-      } else {
-        alert("Incorrect password");
-      }
-    } else {
-      alert("User not found");
-    }
-  };
-
-  return (
-    <View style={authStyles.container}>
-      <Text style={authStyles.title}>Welcome</Text>
-      <TextInput
-        placeholder="Username"
-        value={username}
-        onChangeText={setUsername}
-        style={authStyles.input}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={authStyles.input}
-      />
-      <TouchableOpacity onPress={handleSignIn} style={authStyles.button}>
-        <Text style={authStyles.buttonText}>Sign In</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -66,24 +16,19 @@ export default function App() {
   useEffect(() => {
     const checkLogin = async () => {
       const user = await AsyncStorage.getItem("user");
-      console.log("Stored user from AsyncStorage:", user);  // Check if there's any data stored in AsyncStorage
-
       if (user) {
         const parsed = JSON.parse(user);
-        console.log("Parsed stored user data:", parsed);
-        setUsername(parsed.username);  // Set username from the stored user
-        setIsAuthenticated(true);  // Set user as authenticated
-      } else {
-        console.log("No user logged in yet.");
+        setUsername(parsed.username);
+        setIsAuthenticated(true);  // If a user is already logged in
       }
     };
     checkLogin();
   }, []);
 
   const handleSignOut = async () => {
-    await AsyncStorage.removeItem("user");  // Remove user data on logout
-    setIsAuthenticated(false);  // Update auth state to logged out
-    setUsername("");  // Clear username
+    await AsyncStorage.removeItem("user");  // Log out by removing user data
+    setIsAuthenticated(false);
+    setUsername("");  // Reset username on sign out
   };
 
   const renderContent = () => {
@@ -119,9 +64,8 @@ export default function App() {
     return (
       <AuthScreen
         onAuthSuccess={(name) => {
-          console.log("Authentication successful:", name);  // Debugging log
           setUsername(name);
-          setIsAuthenticated(true);  // After authentication, set to true
+          setIsAuthenticated(true);  // Set authenticated state
         }}
       />
     );
@@ -180,40 +124,5 @@ const styles = StyleSheet.create({
   },
   contentText: {
     fontSize: 18,
-  },
-});
-
-const authStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    backgroundColor: "#f5f5f5",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 40,
-    textAlign: "center",
-    color: "#4CAF50",
-  },
-  input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    marginBottom: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ccc",
-  },
-  button: {
-    backgroundColor: "#4CAF50",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });
