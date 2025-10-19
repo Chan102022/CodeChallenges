@@ -2,9 +2,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+require('dotenv').config();  // Make sure to load environment variables
 
 const router = express.Router();
-const JWT_SECRET = 'supersecretkey'; // Move to .env in production
+
+// Use JWT_SECRET from .env
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey'; // Default for local dev
 
 // Register
 router.post('/signup', async (req, res) => {

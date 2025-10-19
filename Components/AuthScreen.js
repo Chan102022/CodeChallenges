@@ -1,63 +1,58 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function AuthScreen({ onAuthSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isRegistering, setIsRegistering] = useState(false); // Track Register/Login state
-  const [errorMessage, setErrorMessage] = useState(""); // For error messages
+  const [isRegistering, setIsRegistering] = useState(false); // Track Sign In / Register state
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSignIn = async () => {
-    // Reset error message
-    setErrorMessage("");
-
-    // Validate inputs
     if (!username || !password) {
-      setErrorMessage("Please enter both username and password.");
+      alert("Please enter username and password");
       return;
     }
 
     const storedUser = await AsyncStorage.getItem(username);
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      if (parsedUser.password === password) {
-        await AsyncStorage.setItem("user", JSON.stringify(parsedUser)); // persist login
-        onAuthSuccess(username); // On success, pass username to onAuthSuccess
+      const parsed = JSON.parse(storedUser);
+      if (parsed.password === password) {
+        await AsyncStorage.setItem("user", JSON.stringify(parsed)); // persist login
+        onAuthSuccess(parsed.username); // Pass the correct username
       } else {
-        setErrorMessage("Invalid password.");
+        alert("Incorrect password");
       }
     } else {
-      setErrorMessage("User not found, please register.");
+      alert("User not found");
     }
   };
 
   const handleRegister = async () => {
-    // Reset error message
-    setErrorMessage("");
-
-    // Validate inputs
     if (!username || !password) {
-      setErrorMessage("Please enter both username and password.");
+      alert("Please fill in both fields");
       return;
     }
 
     const storedUser = await AsyncStorage.getItem(username);
     if (storedUser) {
-      setErrorMessage("Username already exists. Please choose another one.");
+      alert("Username already exists");
     } else {
       const newUser = { username, password };
       await AsyncStorage.setItem(username, JSON.stringify(newUser));
       await AsyncStorage.setItem("user", JSON.stringify(newUser)); // persist login
-      onAuthSuccess(username);
+      onAuthSuccess(newUser.username); // Pass the username on success
     }
   };
 
   return (
     <View style={authStyles.container}>
-      <Text style={authStyles.title}>{isRegistering ? "Create an Account" : "Log In"}</Text>
+      <Text style={authStyles.title}>
+        {isRegistering ? "Create an Account" : "Log In"}
+      </Text>
 
-      {/* Username and Password Inputs */}
+      {errorMessage && <Text style={authStyles.error}>{errorMessage}</Text>}
+
       <TextInput
         placeholder="Username"
         value={username}
@@ -72,20 +67,19 @@ function AuthScreen({ onAuthSuccess }) {
         style={authStyles.input}
       />
 
-      {/* Error Message */}
-      {errorMessage ? <Text style={authStyles.errorText}>{errorMessage}</Text> : null}
-
-      {/* Conditional buttons based on the state */}
       {isRegistering ? (
         <>
           <TouchableOpacity onPress={handleRegister} style={authStyles.button}>
             <Text style={authStyles.buttonText}>Register</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            onPress={() => setIsRegistering(false)} // Switch to Log In
+            onPress={() => setIsRegistering(false)} // Switch to Sign In
             style={[authStyles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
           >
-            <Text style={authStyles.buttonText}>Already have an account? Log In</Text>
+            <Text style={authStyles.buttonText}>
+              Already have an account? Log In
+            </Text>
           </TouchableOpacity>
         </>
       ) : (
@@ -93,11 +87,14 @@ function AuthScreen({ onAuthSuccess }) {
           <TouchableOpacity onPress={handleSignIn} style={authStyles.button}>
             <Text style={authStyles.buttonText}>Log In</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => setIsRegistering(true)} // Switch to Register
             style={[authStyles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
           >
-            <Text style={authStyles.buttonText}>Don't have an account? Register</Text>
+            <Text style={authStyles.buttonText}>
+              Don't have an account? Register
+            </Text>
           </TouchableOpacity>
         </>
       )}
@@ -119,6 +116,11 @@ const authStyles = StyleSheet.create({
     textAlign: "center",
     color: "#4CAF50",
   },
+  error: {
+    color: "red",
+    marginBottom: 10,
+    textAlign: "center",
+  },
   input: {
     backgroundColor: "#fff",
     padding: 12,
@@ -137,12 +139,6 @@ const authStyles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
-  },
-  errorText: {
-    color: "red",
-    marginBottom: 10,
-    textAlign: "center",
-    fontSize: 14,
   },
 });
 

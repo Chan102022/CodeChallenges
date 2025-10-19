@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import HomeScreen from "./Components/HomeScreen";
@@ -24,11 +18,15 @@ function AuthScreen({ onAuthSuccess }) {
     }
 
     const storedUser = await AsyncStorage.getItem(username);
+    console.log("Stored User from AsyncStorage:", storedUser); // Debugging line to check the stored data
+
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
+      console.log("Parsed User:", parsed);  // Debugging line to check the parsed data
       if (parsed.password === password) {
         await AsyncStorage.setItem("user", JSON.stringify(parsed)); // persist login
-        onAuthSuccess(username);
+        console.log("User authenticated successfully.");
+        onAuthSuccess(parsed.username);  // Pass username on successful login
       } else {
         alert("Incorrect password");
       }
@@ -68,19 +66,24 @@ export default function App() {
   useEffect(() => {
     const checkLogin = async () => {
       const user = await AsyncStorage.getItem("user");
+      console.log("Stored user from AsyncStorage:", user);  // Check if there's any data stored in AsyncStorage
+
       if (user) {
         const parsed = JSON.parse(user);
-        setUsername(parsed.username);
-        setIsAuthenticated(true);
+        console.log("Parsed stored user data:", parsed);
+        setUsername(parsed.username);  // Set username from the stored user
+        setIsAuthenticated(true);  // Set user as authenticated
+      } else {
+        console.log("No user logged in yet.");
       }
     };
     checkLogin();
   }, []);
 
   const handleSignOut = async () => {
-    await AsyncStorage.removeItem("user");
-    setIsAuthenticated(false);
-    setUsername("");
+    await AsyncStorage.removeItem("user");  // Remove user data on logout
+    setIsAuthenticated(false);  // Update auth state to logged out
+    setUsername("");  // Clear username
   };
 
   const renderContent = () => {
@@ -99,22 +102,9 @@ export default function App() {
             <Text style={styles.contentText}>Welcome, {username}</Text>
             <TouchableOpacity
               onPress={handleSignOut}
-              style={[
-                styles.navButton,
-                {
-                  backgroundColor: "#f44336",
-                  marginTop: 20,
-                  borderRadius: 6,
-                },
-              ]}
+              style={[styles.navButton, { backgroundColor: "#f44336", marginTop: 20 }]}
             >
-              <Text
-                style={{
-                  color: "white",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                }}
-              >
+              <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
                 Sign Out
               </Text>
             </TouchableOpacity>
@@ -129,8 +119,9 @@ export default function App() {
     return (
       <AuthScreen
         onAuthSuccess={(name) => {
+          console.log("Authentication successful:", name);  // Debugging log
           setUsername(name);
-          setIsAuthenticated(true);
+          setIsAuthenticated(true);  // After authentication, set to true
         }}
       />
     );
@@ -140,27 +131,17 @@ export default function App() {
     <View style={{ flex: 1 }}>
       {/* Top Navigation */}
       <View style={styles.navBar}>
-        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map(
-          (item) => (
-            <TouchableOpacity
-              key={item}
-              onPress={() => setActiveNav(item)}
-              style={[
-                styles.navButton,
-                activeNav === item && styles.navButtonActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.navText,
-                  activeNav === item && styles.navTextActive,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )
-        )}
+        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map((item) => (
+          <TouchableOpacity
+            key={item}
+            onPress={() => setActiveNav(item)}
+            style={[styles.navButton, activeNav === item && styles.navButtonActive]}
+          >
+            <Text style={[styles.navText, activeNav === item && styles.navTextActive]}>
+              {item}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Content */}
