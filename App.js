@@ -1,198 +1,238 @@
-// App.js
-import React from 'react';
-import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Tab = createMaterialTopTabNavigator();
+import HomeScreen from "./Components/HomeScreen";
+import AdventureScreen from "./Components/AdventureScreen";
+import LeaderboardScreen from "./Components/LeaderboardScreen";
+import DailyQuestScreen from "./Components/DailyQuestScreen";
 
-// Screens
-function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>CodeChallenge</Text>
-      <Text style={styles.description}>
-        Welcome to the coding challenge platform! Where you test your coding skills everyday!
-      </Text>
+function AuthScreen({ onAuthSuccess }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.whiteButton}>
-          <Text style={styles.darkButtonText}>Start</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.whiteButton}>
-          <Text style={styles.darkButtonText}>Settings</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.whiteButton}>
-          <Text style={styles.darkButtonText}>Instructions</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.whiteButton, styles.logoutButton]}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
+  const handleSignIn = async () => {
+    if (!username || !password) {
+      alert("Please enter username and password");
+      return;
+    }
 
-function AboutScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>About</Text>
-      <Text style={styles.aboutDescription}>
-        This app is designed to help you test and improve your coding skills every day. Whether you're a
-        beginner or an experienced developer, you'll find daily challenges and exercises that encourage
-        consistent practice and problem-solving. Train regularly, track your progress, and level up your
-        skills — one challenge at a time.
-      </Text>
-    </View>
-  );
-}
-
-function AdventureScreen() {
-  const levels = Array.from({ length: 10 }, (_, i) => i + 1);
+    const storedUser = await AsyncStorage.getItem(username);
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (parsed.password === password) {
+        await AsyncStorage.setItem("user", JSON.stringify(parsed)); // persist login
+        onAuthSuccess(username);
+      } else {
+        alert("Incorrect password");
+      }
+    } else {
+      alert("User not found");
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Adventure Mode</Text>
-      <Text style={styles.description}>Choose a level to start your journey!</Text>
-
-      <ScrollView contentContainerStyle={styles.levelsContainer}>
-        {levels.map((level) => (
-          <TouchableOpacity key={level} style={styles.wideButton}>
-            <Text style={styles.darkButtonText}>Level {level}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-function DailyChallengesScreen() {
-  return <ScreenContainer title="Daily Challenges" description="Try a new challenge every day." />;
-}
-
-function ProfileScreen() {
-  return <ScreenContainer title="Profile" description="View your profile and achievements." />;
-}
-
-function LeaderboardScreen() {
-  return <ScreenContainer title="Leaderboard" description="See where you rank among other coders!" />;
-}
-
-// Reusable screen layout
-function ScreenContainer({ title, description }) {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+    <View style={authStyles.container}>
+      <Text style={authStyles.title}>Welcome</Text>
+      <TextInput
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
+        style={authStyles.input}
+      />
+      <TextInput
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={authStyles.input}
+      />
+      <TouchableOpacity onPress={handleSignIn} style={authStyles.button}>
+        <Text style={authStyles.buttonText}>Sign In</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 export default function App() {
-  return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarScrollEnabled: false,
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#ccc',
-          tabBarStyle: { backgroundColor: '#222' },
-          tabBarIndicatorStyle: { backgroundColor: '#00aced' },
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: 'bold',
-          },
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [activeNav, setActiveNav] = useState("Home");
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const user = await AsyncStorage.getItem("user");
+      if (user) {
+        const parsed = JSON.parse(user);
+        setUsername(parsed.username);
+        setIsAuthenticated(true);
+      }
+    };
+    checkLogin();
+  }, []);
+
+  const handleSignOut = async () => {
+    await AsyncStorage.removeItem("user");
+    setIsAuthenticated(false);
+    setUsername("");
+  };
+
+  const renderContent = () => {
+    switch (activeNav) {
+      case "Home":
+        return <HomeScreen onStart={() => setActiveNav("Adventure")} />;
+      case "Adventure":
+        return <AdventureScreen username={username} />;
+      case "DailyQuest":
+        return <DailyQuestScreen />;
+      case "Leaderboard":
+        return <LeaderboardScreen />;
+      case "Profile":
+        return (
+          <View>
+            <Text style={styles.contentText}>Welcome, {username}</Text>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              style={[
+                styles.navButton,
+                {
+                  backgroundColor: "#f44336",
+                  marginTop: 20,
+                  borderRadius: 6,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: "white",
+                  fontWeight: "bold",
+                  textAlign: "center",
+                }}
+              >
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onAuthSuccess={(name) => {
+          setUsername(name);
+          setIsAuthenticated(true);
         }}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="About" component={AboutScreen} />
-        <Tab.Screen name="Adv." component={AdventureScreen} />
-        <Tab.Screen name="Daily" component={DailyChallengesScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-        <Tab.Screen name="Rank" component={LeaderboardScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+      />
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Top Navigation */}
+      <View style={styles.navBar}>
+        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map(
+          (item) => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setActiveNav(item)}
+              style={[
+                styles.navButton,
+                activeNav === item && styles.navButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.navText,
+                  activeNav === item && styles.navTextActive,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )
+        )}
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>{renderContent()}</View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  navBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 40,
+    paddingBottom: 10,
+    backgroundColor: "#eee",
+  },
+  navButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  navButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: "blue",
+  },
+  navText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  navTextActive: {
+    fontWeight: "bold",
+    color: "blue",
+  },
+  content: {
     flex: 1,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 20,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#00aced',
-    marginBottom: 10,
-  },
-  description: {
-    fontSize: 16,
-    color: '#eee',
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    marginTop: 40,
-    width: '100%',
-    alignItems: 'center',
-  },
-  whiteButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    marginVertical: 10,
-    width: '85%',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  wideButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    marginVertical: 10,
-    width: '95%',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  darkButtonText: {
-    color: '#000',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    borderWidth: 2,
-    borderColor: '#d9534f',
-  },
-  logoutButtonText: {
-    color: '#d9534f',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  aboutDescription: {
+  contentText: {
     fontSize: 18,
-    color: '#eee',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 28,
-    marginTop: 10,
   },
-  levelsContainer: {
-    marginTop: 30,
-    width: '100%',
-    alignItems: 'center',
-    paddingBottom: 20,
+});
+
+const authStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 40,
+    backgroundColor: "#f5f5f5",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 40,
+    textAlign: "center",
+    color: "#4CAF50",
+  },
+  input: {
+    backgroundColor: "#fff",
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  button: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
