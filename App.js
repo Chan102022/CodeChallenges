@@ -1,82 +1,219 @@
-// App.js
-import React from 'react';
-import { Text, View, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Tab = createMaterialTopTabNavigator();
+import HomeScreen from "./Components/HomeScreen";
+import AdventureScreen from "./Components/AdventureScreen";
+import LeaderboardScreen from "./Components/LeaderboardScreen";
+import DailyQuestScreen from "./Components/DailyQuestScreen";
 
-// Screens
-function HomeScreen() {
-  return <ScreenContainer title="Home" description="Welcome to the coding challenge platform!" />;
-}
-function AboutScreen() {
-  return <ScreenContainer title="About" description="This app lets you test your coding skills." />;
-}
-function AdventureScreen() {
-  return <ScreenContainer title="Adventure" description="Complete levels and progress your skills!" />;
-}
-function DailyChallengesScreen() {
-  return <ScreenContainer title="Daily Challenges" description="Try a new challenge every day." />;
-}
-function ProfileScreen() {
-  return <ScreenContainer title="Profile" description="View your profile and achievements." />;
-}
-function LeaderboardScreen() {
-  return <ScreenContainer title="Leaderboard" description="See where you rank among other coders!" />;
-}
+function AuthScreen({ onAuthSuccess }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
-// Reusable screen layout
-function ScreenContainer({ title, description }) {
+  const handleSignIn = async () => {
+    if (!username || !password) {
+      alert("Please enter username and password");
+      return;
+    }
+
+    const storedUser = await AsyncStorage.getItem(username);
+    console.log("Stored User from AsyncStorage:", storedUser); // Debugging line to check the stored data
+
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      console.log("Parsed User:", parsed);  // Debugging line to check the parsed data
+      if (parsed.password === password) {
+        await AsyncStorage.setItem("user", JSON.stringify(parsed)); // persist login
+        console.log("User authenticated successfully.");
+        onAuthSuccess(parsed.username);  // Pass username on successful login
+      } else {
+        alert("Incorrect password");
+      }
+    } else {
+      alert("User not found");
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+    <View style={authStyles.container}>
+      <Text style={authStyles.title}>Welcome</Text>
+      <TextInput
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
+        style={authStyles.input}
+      />
+      <TextInput
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={authStyles.input}
+      />
+      <TouchableOpacity onPress={handleSignIn} style={authStyles.button}>
+        <Text style={authStyles.buttonText}>Sign In</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 export default function App() {
-  return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarScrollEnabled: true,
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#ccc',
-          tabBarStyle: { backgroundColor: '#222' },
-          tabBarIndicatorStyle: { backgroundColor: '#00aced' },
-          tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold' },
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [activeNav, setActiveNav] = useState("Home");
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const user = await AsyncStorage.getItem("user");
+      console.log("Stored user from AsyncStorage:", user);  // Check if there's any data stored in AsyncStorage
+
+      if (user) {
+        const parsed = JSON.parse(user);
+        console.log("Parsed stored user data:", parsed);
+        setUsername(parsed.username);  // Set username from the stored user
+        setIsAuthenticated(true);  // Set user as authenticated
+      } else {
+        console.log("No user logged in yet.");
+      }
+    };
+    checkLogin();
+  }, []);
+
+  const handleSignOut = async () => {
+    await AsyncStorage.removeItem("user");  // Remove user data on logout
+    setIsAuthenticated(false);  // Update auth state to logged out
+    setUsername("");  // Clear username
+  };
+
+  const renderContent = () => {
+    switch (activeNav) {
+      case "Home":
+        return <HomeScreen onStart={() => setActiveNav("Adventure")} />;
+      case "Adventure":
+        return <AdventureScreen username={username} />;
+      case "DailyQuest":
+        return <DailyQuestScreen />;
+      case "Leaderboard":
+        return <LeaderboardScreen />;
+      case "Profile":
+        return (
+          <View>
+            <Text style={styles.contentText}>Welcome, {username}</Text>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              style={[styles.navButton, { backgroundColor: "#f44336", marginTop: 20 }]}
+            >
+              <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
+                Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onAuthSuccess={(name) => {
+          console.log("Authentication successful:", name);  // Debugging log
+          setUsername(name);
+          setIsAuthenticated(true);  // After authentication, set to true
         }}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="About" component={AboutScreen} />
-        <Tab.Screen name="Adventure" component={AdventureScreen} />
-        <Tab.Screen name="Daily Challenges" component={DailyChallengesScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-        <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+      />
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Top Navigation */}
+      <View style={styles.navBar}>
+        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map((item) => (
+          <TouchableOpacity
+            key={item}
+            onPress={() => setActiveNav(item)}
+            style={[styles.navButton, activeNav === item && styles.navButtonActive]}
+          >
+            <Text style={[styles.navText, activeNav === item && styles.navTextActive]}>
+              {item}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>{renderContent()}</View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  navBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 40,
+    paddingBottom: 10,
+    backgroundColor: "#eee",
+  },
+  navButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  navButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: "blue",
+  },
+  navText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  navTextActive: {
+    fontWeight: "bold",
+    color: "blue",
+  },
+  content: {
     flex: 1,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 20,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#00aced',
-    marginBottom: 10,
+  contentText: {
+    fontSize: 18,
   },
-  description: {
+});
+
+const authStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 40,
+    backgroundColor: "#f5f5f5",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 40,
+    textAlign: "center",
+    color: "#4CAF50",
+  },
+  input: {
+    backgroundColor: "#fff",
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  button: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 16,
-    color: '#eee',
-    textAlign: 'center',
   },
 });
