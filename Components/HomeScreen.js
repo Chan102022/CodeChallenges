@@ -1,23 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function HomeScreen({ onStart, onSave, onLoad }) {
-  // Dummy functions for demonstration
-  const handleSave = () => {
-    if (onSave) {
-      onSave();  // Call the passed save function
-    } else {
-      Alert.alert('Save', 'No save functionality implemented.');
-    }
-  };
-
-  const handleLoad = () => {
-    if (onLoad) {
-      onLoad();  // Call the passed load function
-    } else {
-      Alert.alert('Load', 'No load functionality implemented.');
-    }
-  };
+export default function HomeScreen({ onStart }) {
+  const [note, setNote] = useState('');
 
   return (
     <View style={styles.container}>
@@ -25,22 +10,37 @@ export default function HomeScreen({ onStart, onSave, onLoad }) {
         <Text style={styles.buttonText}>Start</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() =>
+          setNote(
+            'Instructions:\n1. Press Start to begin.\n2. Answer questions carefully.\n3. Check your score after completing.'
+          )
+        }
+      >
         <Text style={styles.buttonText}>Instruction</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() =>
+          setNote(
+            'Help:\nIf you face issues, make sure you are logged in. Contact support if needed.'
+          )
+        }
+      >
         <Text style={styles.buttonText}>Help</Text>
       </TouchableOpacity>
 
-      {/* Save and Load buttons */}
-      <TouchableOpacity style={styles.button} onPress={handleSave}>
-        <Text style={styles.buttonText}>Save</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={handleLoad}>
-        <Text style={styles.buttonText}>Load</Text>
-      </TouchableOpacity>
+      {/* Note display */}
+      {note ? (
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>{note}</Text>
+          <TouchableOpacity onPress={() => setNote('')}>
+            <Text style={styles.closeText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',  
     alignItems: 'center',      
     backgroundColor: '#f5f5f5',
+    paddingHorizontal: 20,
   },
   button: {
     backgroundColor: '#4CAF50',
@@ -65,5 +66,24 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  noteBox: {
+    marginTop: 20,
+    backgroundColor: '#e0f2f1',
+    padding: 15,
+    borderRadius: 8,
+    width: '90%',
+    alignItems: 'center',
+  },
+  noteText: {
+    color: '#004d40',
+    fontSize: 16,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  closeText: {
+    color: '#00796b',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
 });

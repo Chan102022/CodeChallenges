@@ -24,8 +24,7 @@ export default function ProfileScreen({ onLogout }) {
   const [saveMessage, setSaveMessage] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const categories = ['Overview', 'Achievements', 'Stats', 'Edit Credentials'];
+  const categories = ['Overview', 'Edit Credentials'];
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -33,33 +32,15 @@ export default function ProfileScreen({ onLogout }) {
         const userJson = await AsyncStorage.getItem('user');
         if (userJson) {
           const user = JSON.parse(userJson);
-          const data = {
-            fullName: user.fullName,
-            username: user.username,
+
+          setUserData(user);
+          setEditingCredentials({
+            fullName: user.fullName || '',
+            username: user.username || '',
             email: user.email || '',
             password: user.password || '',
-            level: 15,
-            xp: 5000,
-            achievements: [
-              { id: 'a1', label: '🏆 Completed 20 Quests' },
-              { id: 'a2', label: '🔥 7-Day Streak' },
-              { id: 'a3', label: '💡 Solved 100 Challenges' },
-            ],
-            stats: {
-              tasksCompleted: 150,
-              accuracy: 85,
-              fastestCompletion: '0m 45s',
-            },
-          };
-
-          setUserData(data);
-          setEditingCredentials({
-            fullName: data.fullName,
-            username: data.username,
-            email: data.email,
-            password: data.password,
           });
-          setOldUsername(data.username);
+          setOldUsername(user.username);
         }
       } catch (err) {
         console.error('Failed to load user data:', err);
@@ -78,9 +59,7 @@ export default function ProfileScreen({ onLogout }) {
     }).start();
   }, [selectedCategory]);
 
-  const handleLogout = () => {
-    onLogout();
-  };
+  const handleLogout = () => onLogout();
 
   const handleSave = async () => {
     try {
@@ -94,18 +73,13 @@ export default function ProfileScreen({ onLogout }) {
         if (updatedUser.username !== oldUsername) {
           await AsyncStorage.removeItem(oldUsername);
           await AsyncStorage.setItem(updatedUser.username, JSON.stringify(updatedUser));
-        } else {
-          await AsyncStorage.setItem(updatedUser.username, JSON.stringify(updatedUser));
         }
 
-        setUserData({ ...userData, ...editingCredentials });
+        setUserData(updatedUser);
         setOldUsername(updatedUser.username);
         setSelectedCategory('Overview');
 
-        // Show success message
         setSaveMessage('Credentials updated successfully!');
-
-        // Clear message after 3 seconds
         setTimeout(() => setSaveMessage(''), 3000);
       }
     } catch (err) {
@@ -124,11 +98,9 @@ export default function ProfileScreen({ onLogout }) {
   };
 
   const renderCategoryContent = () => {
-    if (!userData) {
-      return <Text style={styles.loadingText}>Loading...</Text>;
-    }
+    if (!userData) return <Text style={styles.loadingText}>Loading...</Text>;
 
-    const { fullName, username, level, xp, achievements, stats } = userData;
+    const { fullName, username, email } = userData;
 
     switch (selectedCategory) {
       case 'Overview':
@@ -136,30 +108,7 @@ export default function ProfileScreen({ onLogout }) {
           <>
             <Text style={styles.challengeTitle}>Full Name: {fullName}</Text>
             <Text style={styles.challengeText}>Username: {username}</Text>
-            <Text style={styles.challengeText}>Level: {level}</Text>
-            <Text style={styles.challengeText}>XP: {xp} / 5000</Text>
-          </>
-        );
-
-      case 'Achievements':
-        return (
-          <>
-            <Text style={styles.challengeTitle}>Achievements</Text>
-            {achievements.map((achievement) => (
-              <Text key={achievement.id} style={styles.challengeText}>
-                {achievement.label}
-              </Text>
-            ))}
-          </>
-        );
-
-      case 'Stats':
-        return (
-          <>
-            <Text style={styles.challengeTitle}>Performance Stats</Text>
-            <Text style={styles.challengeText}>Tasks Completed: {stats.tasksCompleted}</Text>
-            <Text style={styles.challengeText}>Accuracy: {stats.accuracy}%</Text>
-            <Text style={styles.challengeText}>Fastest Completion: {stats.fastestCompletion}</Text>
+            {email ? <Text style={styles.challengeText}>Email: {email}</Text> : null}
           </>
         );
 
@@ -250,117 +199,23 @@ export default function ProfileScreen({ onLogout }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  container: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 20,
-    alignSelf: 'center',
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 20,
-  },
-  categoryButton: {
-    flex: 1,
-    backgroundColor: '#A5D6A7',
-    paddingVertical: 15,
-    marginHorizontal: 5,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  selectedCategoryButton: {
-    backgroundColor: '#4CAF50',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  challengeBox: {
-    marginTop: 30,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 20,
-    width: '100%',
-    elevation: 2,
-  },
-  challengeTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 10,
-  },
-  challengeText: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 6,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  actionButton: {
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
-    fontSize: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  saveButton: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    flex: 1,
-    marginRight: 5,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f44336',
-    padding: 10,
-    borderRadius: 5,
-    flex: 1,
-    marginLeft: 5,
-    alignItems: 'center',
-  },
-  messageBox: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 15,
-    alignItems: 'center',
-  },
-  messageText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+  safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50', marginBottom: 20, alignSelf: 'center' },
+  categoryContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
+  categoryButton: { flex: 1, backgroundColor: '#A5D6A7', paddingVertical: 15, marginHorizontal: 5, borderRadius: 8, alignItems: 'center' },
+  selectedCategoryButton: { backgroundColor: '#4CAF50' },
+  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  challengeBox: { marginTop: 30, backgroundColor: '#ffffff', borderRadius: 10, padding: 20, width: '100%', elevation: 2 },
+  challengeTitle: { fontSize: 18, fontWeight: 'bold', color: '#4CAF50', marginBottom: 10 },
+  challengeText: { fontSize: 16, color: '#333', marginBottom: 6 },
+  loadingText: { fontSize: 16, color: '#888', textAlign: 'center', paddingVertical: 20 },
+  actionButton: { padding: 15, borderRadius: 8, alignItems: 'center' },
+  actionButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5, fontSize: 16 },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  saveButton: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, flex: 1, marginRight: 5, alignItems: 'center' },
+  cancelButton: { backgroundColor: '#f44336', padding: 10, borderRadius: 5, flex: 1, marginLeft: 5, alignItems: 'center' },
+  messageBox: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, marginBottom: 15, alignItems: 'center' },
+  messageText: { color: 'white', fontWeight: 'bold' },
 });

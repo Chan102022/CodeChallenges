@@ -1,8 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-function AuthScreen({ onAuthSuccess }) {
+export default function AuthScreen({ onAuthSuccess }) {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -12,22 +18,24 @@ function AuthScreen({ onAuthSuccess }) {
 
   const handleSignIn = async () => {
     if (!username || !password) {
-      setErrorMessage("Please enter both username and password");
+      setErrorMessage("Enter username and password");
       return;
     }
 
     const storedUser = await AsyncStorage.getItem(username);
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      if (parsed.password === password) {
-        await AsyncStorage.setItem("user", JSON.stringify(parsed));
-        onAuthSuccess(parsed.username);
-      } else {
-        setErrorMessage("Incorrect password");
-      }
-    } else {
+    if (!storedUser) {
       setErrorMessage("User not found");
+      return;
     }
+
+    const parsed = JSON.parse(storedUser);
+    if (parsed.password !== password) {
+      setErrorMessage("Incorrect password");
+      return;
+    }
+
+    await AsyncStorage.setItem("user", JSON.stringify(parsed));
+    onAuthSuccess(parsed.username);
   };
 
   const handleRegister = async () => {
@@ -35,7 +43,6 @@ function AuthScreen({ onAuthSuccess }) {
       setErrorMessage("All fields are required");
       return;
     }
-
     if (password !== confirmPassword) {
       setErrorMessage("Passwords do not match");
       return;
@@ -47,26 +54,41 @@ function AuthScreen({ onAuthSuccess }) {
       return;
     }
 
-    const newUser = { fullName, username, password };
+    const newUser = {
+      fullName,
+      username,
+      password,
+      score: 0,
+      lastPlayedDate: null,
+    };
+
     await AsyncStorage.setItem(username, JSON.stringify(newUser));
     await AsyncStorage.setItem("user", JSON.stringify(newUser));
-    onAuthSuccess(newUser.username);
+
+    // Add username to master user list for leaderboard
+    const allUsers = JSON.parse(await AsyncStorage.getItem("users") || "[]");
+    if (!allUsers.includes(username)) {
+      allUsers.push(username);
+      await AsyncStorage.setItem("users", JSON.stringify(allUsers));
+    }
+
+    onAuthSuccess(username);
   };
 
   return (
-    <View style={authStyles.container}>
-      <Text style={authStyles.title}>
-        {isRegistering ? "Create an Account" : "Log In"}
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {isRegistering ? "Register" : "Log In"}
       </Text>
 
-      {errorMessage ? <Text style={authStyles.error}>{errorMessage}</Text> : null}
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
       {isRegistering && (
         <TextInput
           placeholder="Full Name"
           value={fullName}
           onChangeText={setFullName}
-          style={authStyles.input}
+          style={styles.input}
         />
       )}
 
@@ -74,14 +96,14 @@ function AuthScreen({ onAuthSuccess }) {
         placeholder="Username"
         value={username}
         onChangeText={setUsername}
-        style={authStyles.input}
+        style={styles.input}
       />
       <TextInput
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        style={authStyles.input}
+        style={styles.input}
       />
 
       {isRegistering && (
@@ -90,40 +112,32 @@ function AuthScreen({ onAuthSuccess }) {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
-          style={authStyles.input}
+          style={styles.input}
         />
       )}
 
       {isRegistering ? (
         <>
-          <TouchableOpacity onPress={handleRegister} style={authStyles.button}>
-            <Text style={authStyles.buttonText}>Register</Text>
+          <TouchableOpacity onPress={handleRegister} style={styles.button}>
+            <Text style={styles.buttonText}>Register</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            onPress={() => {
-              setIsRegistering(false);
-              setErrorMessage("");
-            }}
-            style={[authStyles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
+            onPress={() => { setIsRegistering(false); setErrorMessage(""); }}
+            style={[styles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
           >
-            <Text style={authStyles.buttonText}>Already have an account? Log In</Text>
+            <Text style={styles.buttonText}>Already have an account? Log In</Text>
           </TouchableOpacity>
         </>
       ) : (
         <>
-          <TouchableOpacity onPress={handleSignIn} style={authStyles.button}>
-            <Text style={authStyles.buttonText}>Log In</Text>
+          <TouchableOpacity onPress={handleSignIn} style={styles.button}>
+            <Text style={styles.buttonText}>Log In</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            onPress={() => {
-              setIsRegistering(true);
-              setErrorMessage("");
-            }}
-            style={[authStyles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
+            onPress={() => { setIsRegistering(true); setErrorMessage(""); }}
+            style={[styles.button, { backgroundColor: "#4CAF50", marginTop: 10 }]}
           >
-            <Text style={authStyles.buttonText}>Don't have an account? Register</Text>
+            <Text style={styles.buttonText}>Don't have an account? Register</Text>
           </TouchableOpacity>
         </>
       )}
@@ -131,44 +145,11 @@ function AuthScreen({ onAuthSuccess }) {
   );
 }
 
-const authStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    backgroundColor: "#f5f5f5",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 40,
-    textAlign: "center",
-    color: "#4CAF50",
-  },
-  error: {
-    color: "red",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    marginBottom: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ccc",
-  },
-  button: {
-    backgroundColor: "#4CAF50",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", paddingHorizontal: 40, backgroundColor: "#f5f5f5" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 40, textAlign: "center", color: "#4CAF50" },
+  error: { color: "red", marginBottom: 10, textAlign: "center" },
+  input: { backgroundColor: "#fff", padding: 12, marginBottom: 20, borderRadius: 8, borderWidth: 1, borderColor: "#ccc" },
+  button: { backgroundColor: "#4CAF50", padding: 15, borderRadius: 8, alignItems: "center" },
+  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });
-
-export default AuthScreen;
