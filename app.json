@@ -22,7 +22,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.raygwapo.codechallenge",
-      "googleServicesFile": "${GOOGLE_SERVICES_JSON}"
+      "googleServicesFile": "android/app/google-services.json"
+
     },
     "web": {
       "favicon": "./assets/icon.png"
