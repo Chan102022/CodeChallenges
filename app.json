@@ -24,6 +24,8 @@
       "package": "com.raygwapo.codechallenge",
       "googleServicesFile": "android/app/google-services.json"
 
+
+
     },
     "web": {
       "favicon": "./assets/icon.png"
