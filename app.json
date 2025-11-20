@@ -1,5 +1,6 @@
 {
   "expo": {
+    
     "name": "CodeChallenge",
     "slug": "CodeChallenge",
     "version": "1.0.0",
@@ -19,9 +20,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
+        
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.CodeChallenge"
+      "package": "com.raygwapo.codechallenge",
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "favicon": "./assets/icon.png"
