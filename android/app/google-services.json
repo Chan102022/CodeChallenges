@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "825769971060",
+    "project_id": "codechallenges-324db",
+    "storage_bucket": "codechallenges-324db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:825769971060:android:080a64a21811431a72b021",
+        "android_client_info": {
+          "package_name": "com.raygwapo.codechallenge"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "825769971060-l0p73hckjn0vrspot5pr772iku5gaer9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.raygwapo.codechallenge",
+            "certificate_hash": "e33de8db672d2c6a779a52c2cc332207d04493ac"
+          }
+        },
+        {
+          "client_id": "825769971060-mktm5upoe3b8chiclmd80a0hs6l159ih.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlxidJdctOFRZM-wjNiA4WnGK2ekLk0dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "825769971060-h4mn6egkamtbav9ankk15gnhkfvla541.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
