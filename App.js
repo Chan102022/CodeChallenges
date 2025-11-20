@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View } from "react-native";
+
+import { auth, db } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 import AuthScreen from "./Components/AuthScreen";
 import HomeScreen from "./Components/HomeScreen";
@@ -14,136 +11,95 @@ import AdventureScreen from "./Components/AdventureScreen";
 import LeaderboardScreen from "./Components/LeaderboardScreen";
 import DailyQuestScreen from "./Components/DailyQuestScreen";
 import ProfileScreen from "./Components/ProfileScreen";
+import AdminEditor from "./Components/AdminEditor";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState("");
-  const [activeNav, setActiveNav] = useState("Home");
+  const [activeScreen, setActiveScreen] = useState("Home");
+  const [userData, setUserData] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Auto-login if user already exists in AsyncStorage
   useEffect(() => {
-    const checkUser = async () => {
-      const userJson = await AsyncStorage.getItem("user");
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        setUsername(user.username);
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          setUserData(data);
+          setIsAdmin(data.role === "admin");
+        }
+
         setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+        setUserData(null);
+        setIsAdmin(false);
       }
-    };
-    checkUser();
+    });
+
+    return () => unsub();
   }, []);
 
-  // Logout logic - Changed: Removed invalid navigation.reset (not needed for custom navigation)
-  const handleLogout = async () => {
-    try {
-      // Clear user data from AsyncStorage
-      await AsyncStorage.removeItem("user");
-
-      // Update authentication state and navigation
-      setIsAuthenticated(false);
-      setUsername("");
-      setActiveNav("Home");
-
-      // Show alert after logout
-      Alert.alert("Logged out", "You have been logged out.", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Additional actions can go here if necessary
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error("Error during logout:", error);
-    }
+  const logout = async () => {
+    await signOut(auth);
+    setIsAuthenticated(false);
+    setActiveScreen("Home");
   };
 
-  // Render main screens after login
-  const renderContent = () => {
-    switch (activeNav) {
+  const renderScreen = () => {
+    switch (activeScreen) {
       case "Home":
-        return <HomeScreen onStart={() => setActiveNav("Adventure")} />;
+        return <HomeScreen goTo={setActiveScreen} isAdmin={isAdmin} />;
+
       case "Adventure":
-        return <AdventureScreen username={username} />;
-      case "DailyQuest":
-        return <DailyQuestScreen />;
+        return (
+          <AdventureScreen
+            username={userData?.uid}   // ✔ using UID
+            goTo={setActiveScreen}
+          />
+        );
+
+     case "DailyQuest":
+    return <DailyQuestScreen goTo={setActiveScreen} />;
+
+
       case "Leaderboard":
-        return <LeaderboardScreen />;
+  return (
+    <LeaderboardScreen
+      goBack={() => setActiveScreen("Home")}
+      goTo={setActiveScreen}
+    />
+  );
+
+
       case "Profile":
-        return <ProfileScreen onLogout={handleLogout} />;
+        return (
+          <ProfileScreen
+            user={userData}
+            goTo={setActiveScreen}
+            onLogout={logout}
+          />
+        );
+
+      case "Admin":
+        return <AdminEditor goTo={setActiveScreen} />;
+
       default:
         return null;
     }
   };
 
-  // Render auth screen if not logged in
   if (!isAuthenticated) {
     return (
       <AuthScreen
-        onAuthSuccess={(name) => {
-          setUsername(name);
-          setIsAuthenticated(true);
+        onAuthSuccess={(uid) => {
+          setActiveScreen("Home");
         }}
       />
     );
   }
 
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Top Navigation */}
-      <View style={styles.navBar}>
-        {["Home", "Adventure", "DailyQuest", "Leaderboard", "Profile"].map(
-          (item) => (
-            <TouchableOpacity
-              key={item}
-              onPress={() => setActiveNav(item)}
-              style={[
-                styles.navButton,
-                activeNav === item && styles.navButtonActive,
-              ]}
-            >
-              <Text
-                style={[styles.navText, activeNav === item && styles.navTextActive]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )
-        )}
-      </View>
-
-      {/* Screen Content */}
-      <View style={styles.content}>{renderContent()}</View>
-    </View>
-  );
+  return <View style={{ flex: 1 }}>{renderScreen()}</View>;
 }
-
-const styles = StyleSheet.create({
-  navBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 40,
-    paddingBottom: 10,
-    backgroundColor: "#eee",
-  },
-  navButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  navButtonActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: "blue",
-  },
-  navText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  navTextActive: {
-    fontWeight: "bold",
-    color: "blue",
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-});

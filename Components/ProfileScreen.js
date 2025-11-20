@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,48 +8,53 @@ import {
   SafeAreaView,
   Animated,
   TextInput,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+} from "react-native";
 
-export default function ProfileScreen({ onLogout }) {
-  const [selectedCategory, setSelectedCategory] = useState('Overview');
+import { auth, db } from "../firebase";
+import { signOut, updatePassword, updateProfile } from "firebase/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+
+export default function ProfileScreen({ onLogout, username, isAdmin, goTo }) {
+  const [selectedCategory, setSelectedCategory] = useState("Overview");
   const [userData, setUserData] = useState(null);
+
   const [editingCredentials, setEditingCredentials] = useState({
-    fullName: '',
-    username: '',
-    email: '',
-    password: '',
+    fullName: "",
+    username: "",
+    email: "",
+    password: "",
   });
-  const [oldUsername, setOldUsername] = useState('');
-  const [saveMessage, setSaveMessage] = useState('');
 
+  const [saveMessage, setSaveMessage] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const categories = ['Overview', 'Edit Credentials'];
 
+  const categories = ["Overview", "Edit Credentials"];
+
+  // Load from Firestore
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userJson = await AsyncStorage.getItem('user');
-        if (userJson) {
-          const user = JSON.parse(userJson);
+    const loadUser = async () => {
+      if (!auth.currentUser) return;
 
-          setUserData(user);
-          setEditingCredentials({
-            fullName: user.fullName || '',
-            username: user.username || '',
-            email: user.email || '',
-            password: user.password || '',
-          });
-          setOldUsername(user.username);
-        }
-      } catch (err) {
-        console.error('Failed to load user data:', err);
+      const ref = doc(db, "users", auth.currentUser.uid);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        const user = snap.data();
+
+        setUserData(user);
+        setEditingCredentials({
+          fullName: user.fullName || "",
+          username: user.username || "",
+          email: user.email || "",
+          password: "",
+        });
       }
     };
 
-    fetchUserData();
+    loadUser();
   }, []);
 
+  // Fade animation
   useEffect(() => {
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
@@ -59,32 +64,43 @@ export default function ProfileScreen({ onLogout }) {
     }).start();
   }, [selectedCategory]);
 
-  const handleLogout = () => onLogout();
-
+  // Save changes
   const handleSave = async () => {
     try {
-      const userJson = await AsyncStorage.getItem('user');
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        const updatedUser = { ...user, ...editingCredentials };
+      const uid = auth.currentUser.uid;
+      const ref = doc(db, "users", uid);
 
-        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      const updatedData = {
+        fullName: editingCredentials.fullName,
+        username: editingCredentials.username,
+        email: editingCredentials.email,
+      };
 
-        if (updatedUser.username !== oldUsername) {
-          await AsyncStorage.removeItem(oldUsername);
-          await AsyncStorage.setItem(updatedUser.username, JSON.stringify(updatedUser));
-        }
+      await updateDoc(ref, updatedData);
 
-        setUserData(updatedUser);
-        setOldUsername(updatedUser.username);
-        setSelectedCategory('Overview');
-
-        setSaveMessage('Credentials updated successfully!');
-        setTimeout(() => setSaveMessage(''), 3000);
+      if (editingCredentials.password) {
+        await updatePassword(auth.currentUser, editingCredentials.password);
       }
+
+      await updateProfile(auth.currentUser, {
+        displayName: editingCredentials.username,
+      });
+
+      setUserData({ ...userData, ...updatedData });
+
+      setSaveMessage("Profile updated successfully!");
+      setTimeout(() => setSaveMessage(""), 3000);
+
+      setSelectedCategory("Overview");
     } catch (err) {
-      console.error('Failed to save user data:', err);
+      console.log("SAVE ERROR:", err);
+      setSaveMessage("Error saving profile.");
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    onLogout();
   };
 
   const handleCancel = () => {
@@ -92,59 +108,98 @@ export default function ProfileScreen({ onLogout }) {
       fullName: userData.fullName,
       username: userData.username,
       email: userData.email,
-      password: userData.password,
+      password: "",
     });
-    setSelectedCategory('Overview');
+    setSelectedCategory("Overview");
   };
 
   const renderCategoryContent = () => {
-    if (!userData) return <Text style={styles.loadingText}>Loading...</Text>;
-
-    const { fullName, username, email } = userData;
+    if (!userData)
+      return <Text style={styles.loadingText}>Loading profile...</Text>;
 
     switch (selectedCategory) {
-      case 'Overview':
+      case "Overview":
         return (
           <>
-            <Text style={styles.challengeTitle}>Full Name: {fullName}</Text>
-            <Text style={styles.challengeText}>Username: {username}</Text>
-            {email ? <Text style={styles.challengeText}>Email: {email}</Text> : null}
+            {/* XP & SCORE CARD */}
+            <View style={styles.statsCard}>
+              <Text style={styles.statsTitle}>Player Stats</Text>
+
+              <View style={styles.statsRow}>
+                <Text style={styles.statsLabel}>XP:</Text>
+                <Text style={styles.statsValue}>{userData.xp ?? 0}</Text>
+              </View>
+
+              <View style={styles.statsRow}>
+                <Text style={styles.statsLabel}>Score:</Text>
+                <Text style={styles.statsValue}>{userData.score ?? 0}</Text>
+              </View>
+            </View>
+
+            {/* USER INFO */}
+            <Text style={styles.infoText}>Full Name: {userData.fullName}</Text>
+            <Text style={styles.infoText}>Username: {userData.username}</Text>
+            <Text style={styles.infoText}>Email: {userData.email}</Text>
+            <Text style={styles.infoText}>Role: {userData.role}</Text>
+
+            {isAdmin ? (
+              <TouchableOpacity
+                style={styles.adminButton}
+                onPress={() => goTo("Admin")}
+              >
+                <Text style={styles.adminText}>🛠️ Admin Panel</Text>
+              </TouchableOpacity>
+            ) : null}
           </>
         );
 
-      case 'Edit Credentials':
+      case "Edit Credentials":
         return (
           <>
-            <Text style={styles.challengeTitle}>Edit Credentials</Text>
+            <Text style={styles.editTitle}>Edit Profile</Text>
+
             <TextInput
               style={styles.input}
               placeholder="Full Name"
               value={editingCredentials.fullName}
-              onChangeText={(text) =>
-                setEditingCredentials({ ...editingCredentials, fullName: text })
+              onChangeText={(t) =>
+                setEditingCredentials({ ...editingCredentials, fullName: t })
               }
             />
+
             <TextInput
               style={styles.input}
               placeholder="Username"
               value={editingCredentials.username}
-              onChangeText={(text) =>
-                setEditingCredentials({ ...editingCredentials, username: text })
+              onChangeText={(t) =>
+                setEditingCredentials({ ...editingCredentials, username: t })
               }
             />
+
             <TextInput
               style={styles.input}
-              placeholder="Password"
-              value={editingCredentials.password}
-              onChangeText={(text) =>
-                setEditingCredentials({ ...editingCredentials, password: text })
+              placeholder="Email"
+              value={editingCredentials.email}
+              onChangeText={(t) =>
+                setEditingCredentials({ ...editingCredentials, email: t })
               }
-              secureTextEntry
             />
+
+            <TextInput
+              style={styles.input}
+              placeholder="New Password (optional)"
+              secureTextEntry
+              value={editingCredentials.password}
+              onChangeText={(t) =>
+                setEditingCredentials({ ...editingCredentials, password: t })
+              }
+            />
+
             <View style={styles.buttonContainer}>
               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.buttonText}>Save</Text>
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
@@ -160,7 +215,13 @@ export default function ProfileScreen({ onLogout }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Profile</Text>
+        
+        {/* BACK TO HOME BUTTON */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => goTo("Home")}>
+          <Text style={styles.backText}>◀ Back</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.title}>Player Profile</Text>
 
         <View style={styles.categoryContainer}>
           {categories.map((category, index) => (
@@ -168,11 +229,11 @@ export default function ProfileScreen({ onLogout }) {
               key={index}
               style={[
                 styles.categoryButton,
-                selectedCategory === category && styles.selectedCategoryButton,
+                selectedCategory === category && styles.categoryActive,
               ]}
               onPress={() => setSelectedCategory(category)}
             >
-              <Text style={styles.buttonText}>{category}</Text>
+              <Text style={styles.categoryText}>{category}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -183,39 +244,179 @@ export default function ProfileScreen({ onLogout }) {
           </View>
         ) : null}
 
-        <Animated.View style={[styles.challengeBox, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
           {renderCategoryContent()}
         </Animated.View>
 
         <TouchableOpacity
           onPress={handleLogout}
-          style={[styles.actionButton, { backgroundColor: '#f44336', marginTop: 20 }]}
+          style={styles.logoutButton}
         >
-          <Text style={styles.actionButtonText}>Log Out</Text>
+          <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+/* -------------------------------- STYLES -------------------------------- */
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
-  container: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50', marginBottom: 20, alignSelf: 'center' },
-  categoryContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
-  categoryButton: { flex: 1, backgroundColor: '#A5D6A7', paddingVertical: 15, marginHorizontal: 5, borderRadius: 8, alignItems: 'center' },
-  selectedCategoryButton: { backgroundColor: '#4CAF50' },
-  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  challengeBox: { marginTop: 30, backgroundColor: '#ffffff', borderRadius: 10, padding: 20, width: '100%', elevation: 2 },
-  challengeTitle: { fontSize: 18, fontWeight: 'bold', color: '#4CAF50', marginBottom: 10 },
-  challengeText: { fontSize: 16, color: '#333', marginBottom: 6 },
-  loadingText: { fontSize: 16, color: '#888', textAlign: 'center', paddingVertical: 20 },
-  actionButton: { padding: 15, borderRadius: 8, alignItems: 'center' },
-  actionButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5, fontSize: 16 },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
-  saveButton: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, flex: 1, marginRight: 5, alignItems: 'center' },
-  cancelButton: { backgroundColor: '#f44336', padding: 10, borderRadius: 5, flex: 1, marginLeft: 5, alignItems: 'center' },
-  messageBox: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, marginBottom: 15, alignItems: 'center' },
-  messageText: { color: 'white', fontWeight: 'bold' },
+  safeArea: { flex: 1, backgroundColor: "#081624" },
+  container: { paddingTop: 40, paddingHorizontal: 16, paddingBottom: 60 },
+
+  /* BACK BUTTON */
+  backBtn: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#123043",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1e3a45",
+    zIndex: 999,
+  },
+  backText: {
+    color: "#cfeeea",
+    fontWeight: "800",
+  },
+
+  title: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#FFD54F",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+
+  categoryContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 20,
+    gap: 10,
+  },
+
+  categoryButton: {
+    backgroundColor: "#123043",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1e3a45",
+  },
+
+  categoryActive: {
+    backgroundColor: "#0ea5a0",
+    borderColor: "#0ea5a0",
+  },
+
+  categoryText: {
+    color: "#cfeeea",
+    fontWeight: "700",
+  },
+
+  card: {
+    backgroundColor: "#071826",
+    padding: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#123640",
+  },
+
+  statsCard: {
+    backgroundColor: "#08323f",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 18,
+  },
+  statsTitle: {
+    color: "#ffd54f",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 10,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  statsLabel: {
+    color: "#cfeeea",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  statsValue: {
+    color: "#0ea5a0",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  infoText: {
+    color: "#cfeeea",
+    fontSize: 16,
+    marginBottom: 8,
+  },
+
+  adminButton: {
+    backgroundColor: "#ffd54f",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 20,
+  },
+  adminText: { color: "#3a2d00", textAlign: "center", fontWeight: "900" },
+
+  input: {
+    backgroundColor: "#04131a",
+    borderWidth: 1,
+    borderColor: "#123043",
+    color: "#e6f7f5",
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: "#4caf50",
+    padding: 12,
+    borderRadius: 10,
+    marginRight: 5,
+    alignItems: "center",
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#e64a19",
+    padding: 12,
+    borderRadius: 10,
+    marginLeft: 5,
+    alignItems: "center",
+  },
+  buttonText: { color: "#fff", fontWeight: "900" },
+
+  logoutButton: {
+    marginTop: 25,
+    backgroundColor: "#b71c1c",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  logoutText: { color: "#fff", fontWeight: "900" },
+
+  messageBox: {
+    backgroundColor: "#0ea5a0",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  messageText: { color: "#022c2c", fontWeight: "900", textAlign: "center" },
+
+  loadingText: { color: "#fff", textAlign: "center" },
 });

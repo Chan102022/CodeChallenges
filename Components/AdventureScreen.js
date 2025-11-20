@@ -1,228 +1,390 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, ActivityIndicator 
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+// Components/AdventureScreen.js
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  TextInput,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 
-// Java-only challenges
-export const CHALLENGES = {
-  Java: {
-    1: { question: "Print 'Hello World'", template: `class Main {\n  public static void main(String[] args) {\n    // your code here\n  }\n}`, expectedOutput: "Hello World", language_id: 62, difficulty: "Easy" },
-    2: { question: "Add two numbers (a=2, b=3) and print the sum", template: `class Main {\n  public static void main(String[] args) {\n    int a = 2, b = 3;\n    // your code here\n  }\n}`, expectedOutput: "5", language_id: 62, difficulty: "Easy" },
-    3: { question: "Print all even numbers from 1 to 10", template: `class Main {\n  public static void main(String[] args) {\n    // your code here\n  }\n}`, expectedOutput: "2 4 6 8 10", language_id: 62, difficulty: "Medium" },
-    4: { question: "Calculate factorial of 5", template: `class Main {\n  public static void main(String[] args) {\n    int n = 5;\n    // your code here\n  }\n}`, expectedOutput: "120", language_id: 62, difficulty: "Medium" },
-    5: { question: "Check if a number (7) is prime", template: `class Main {\n  public static void main(String[] args) {\n    int n = 7;\n    // your code here\n  }\n}`, expectedOutput: "Prime", language_id: 62, difficulty: "Medium" },
-    6: { question: "Reverse a string 'Java'", template: `class Main {\n  public static void main(String[] args) {\n    String str = "Java";\n    // your code here\n  }\n}`, expectedOutput: "avaJ", language_id: 62, difficulty: "Medium" },
-    7: { question: "Find the largest element in array [4,7,1,9,2]", template: `class Main {\n  public static void main(String[] args) {\n    int[] arr = {4,7,1,9,2};\n    // your code here\n  }\n}`, expectedOutput: "9", language_id: 62, difficulty: "Hard" },
-    8: { question: "Sum of digits of 12345", template: `class Main {\n  public static void main(String[] args) {\n    int n = 12345;\n    // your code here\n  }\n}`, expectedOutput: "15", language_id: 62, difficulty: "Hard" },
-    9: { question: "Fibonacci series up to 10 terms", template: `class Main {\n  public static void main(String[] args) {\n    int n = 10;\n    // your code here\n  }\n}`, expectedOutput: "0 1 1 2 3 5 8 13 21 34", language_id: 62, difficulty: "Hard" },
-    10: { question: "Check if a string 'racecar' is a palindrome", template: `class Main {\n  public static void main(String[] args) {\n    String str = "racecar";\n    // your code here\n  }\n}`, expectedOutput: "Palindrome", language_id: 62, difficulty: "Hard" }
-  }
-};
+import axios from "axios";
+import { db } from "../firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
-export default function AdventureScreen({ username }) {
+
+// Backend endpoint
+const BASE = "https://myccbackend-2.onrender.com";
+
+export default function AdventureScreen({ username, goTo }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [levels, setLevels] = useState([]);
   const [unlockedLevel, setUnlockedLevel] = useState(1);
   const [completedLevels, setCompletedLevels] = useState([]);
+
   const [currentChallenge, setCurrentChallenge] = useState(null);
-  const [codeInput, setCodeInput] = useState('');
+  const [codeInput, setCodeInput] = useState("");
   const [executionResult, setExecutionResult] = useState(null);
   const [running, setRunning] = useState(false);
+  const [loadingLevels, setLoadingLevels] = useState(false);
+  const [xp, setXp] = useState(0);
+const [score, setScore] = useState(0);
 
-  // FIX: Add missing function
+
+  const [selectedLangTab, setSelectedLangTab] = useState("Java");
+
+  // Difficulty color
   const difficultyColor = (diff) => {
     switch (diff) {
-      case "Easy": return "#81C784";
-      case "Medium": return "#FFB74D";
-      case "Hard": return "#E57373";
-      default: return "#B0BEC5";
+      case "Easy": return "#66bb6a";
+      case "Medium": return "#ffa726";
+      case "Hard": return "#ef5350";
+      default: return "#90a4ae";
     }
   };
 
-  const getStorageKey = (category) => `${username}_${category}_progress`;
+  // Load levels from Firestore
+  const loadLevelsFromFirestore = async (category) => {
+    setLoadingLevels(true);
+    setLevels([]);
 
-  useEffect(() => {
-    if (!selectedCategory) return;
-    const loadProgress = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(getStorageKey(selectedCategory));
-        if (stored) {
-          const { unlockedLevel: ul, completedLevels: cl } = JSON.parse(stored);
-          setUnlockedLevel(ul || 1);
-          setCompletedLevels(cl || []);
-        }
-      } catch (error) { console.log('AsyncStorage load error:', error); }
-    };
-    loadProgress();
-  }, [selectedCategory]);
-
-  const saveProgress = async (ul, cl) => {
     try {
-      await AsyncStorage.setItem(getStorageKey(selectedCategory), JSON.stringify({ unlockedLevel: ul, completedLevels: cl }));
-    } catch (error) { console.log('AsyncStorage save error:', error); }
+      const levelsRef = collection(db, "challenges", category, "levels");
+      const snapshot = await getDocs(levelsRef);
+
+      const list = snapshot.docs
+        .map((doc) => ({ id: Number(doc.id), ...doc.data() }))
+        .sort((a, b) => a.id - b.id);
+
+      setLevels(list);
+    } catch (error) {
+      Alert.alert("Error", "Failed to load levels");
+    }
+
+    setLoadingLevels(false);
   };
 
-  const handleLevelPress = (level) => {
-    if (!selectedCategory) { Alert.alert('Error', 'Please select Java first.'); return; }
-    if (level > unlockedLevel) { Alert.alert('Locked', `Complete Level ${level - 1} first.`); return; }
+  const selectCategory = (category) => {
+    setSelectedCategory(category);
+    setSelectedLangTab(category);
+    loadLevelsFromFirestore(category);
+  };
 
-    const challengeData = CHALLENGES.Java[level];
-    setCurrentChallenge({ level, ...challengeData });
-    setCodeInput(challengeData.template);
+  useEffect(() => {
+  loadUserProgress();
+}, []);
+
+const loadUserProgress = async () => {
+  try {
+    const userRef = doc(db, "users", username); // username = uid
+    const snap = await getDoc(userRef);
+
+    if (snap.exists()) {
+      const data = snap.data();
+
+      setUnlockedLevel(data.unlockedLevel || 1);
+      setCompletedLevels(data.completedLevels || []);
+      setXp(data.xp || 0);
+      setScore(data.score || 0);
+    }
+  } catch (err) {
+    console.log("Failed to load user progress:", err);
+  }
+};
+
+
+  // Play a level
+  const handleLevelPress = (lvl) => {
+    if (lvl > unlockedLevel) {
+      Alert.alert("Locked", `Complete Level ${lvl - 1} first.`);
+      return;
+    }
+
+    const data = levels.find((l) => l.id === lvl);
+    setCurrentChallenge(data);
+    setCodeInput(data.template || "");
     setExecutionResult(null);
   };
 
+  // Run code
   const handleRunCode = async () => {
     if (!currentChallenge) return;
     setRunning(true);
     setExecutionResult(null);
 
     try {
-      const response = await axios.post(
-        'https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false&wait=true',
-        {
-          source_code: codeInput,
-          language_id: currentChallenge.language_id,
-          stdin: ''
-        },
-        {
-          headers: {
-            'X-RapidAPI-Key': '4686562434msh8a4eb7c471e9dd5p13d70djsn85f1723cc6a5',
-            'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      const { stdout, stderr, compile_output, status } = response.data;
-      setExecutionResult({
-        output: stdout || '',
-        stderr: stderr || compile_output || '',
-        status: status?.description || 'Unknown'
+      const response = await axios.post(`${BASE}/compile`, {
+        source_code: codeInput,
+        language_id: currentChallenge.language_id,
       });
 
-    } catch (error) {
-      console.log('Judge0 error', error);
-      setExecutionResult({ output: '', stderr: 'Error executing code.', status: 'Error' });
+      const { stdout, stderr, compile_output } = response.data;
+      setExecutionResult({
+        output: stdout || "",
+        stderr: stderr || compile_output || "",
+      });
+    } catch {
+      setExecutionResult({
+        output: "",
+        stderr: "Execution error.",
+      });
     }
 
     setRunning(false);
   };
 
-  const handleCompleteLevel = () => {
-    if (!executionResult || executionResult.stderr) {
-      Alert.alert("Error", "Fix the errors first.");
-      return;
-    }
+  // Normalize output
+  const normalize = (s) =>
+    String(s || "").replace(/\r/g, "").trim().replace(/\s+/g, " ");
 
-    if (executionResult.output.trim() !== currentChallenge.expectedOutput.trim()) {
+  const outputsMatch = (actual, expected) =>
+    normalize(actual) === normalize(expected);
+
+  const scoreForDifficulty = (diff) => {
+  switch (diff) {
+    case "Easy": return 10;
+    case "Medium": return 20;
+    case "Hard": return 40;
+    default: return 5;
+  }
+};
+const xpForDifficulty = (diff) => {
+  switch (diff) {
+    case "Easy": return 20;   // Score 10 → XP 20
+    case "Medium": return 40; // Score 20 → XP 40
+    case "Hard": return 80;   // Score 40 → XP 80
+    default: return 10;
+  }
+};
+
+
+  // Complete level
+ const handleCompleteLevel = async () => {
+  if (!currentChallenge) return;
+
+  try {
+    const result = await axios.post(`${BASE}/submit-result`, {
+      source_code: codeInput,
+      expectedOutput: currentChallenge.expectedOutput,
+      language_id: currentChallenge.language_id,
+    });
+
+    if (!result.data.ok || !result.data.passed) {
       Alert.alert("Incorrect", "Output does not match expected result.");
       return;
     }
 
-    const next = currentChallenge.level + 1;
-    const updatedCompleted = [...completedLevels, currentChallenge.level];
-    const updatedUnlocked = Math.max(unlockedLevel, next);
+    const next = currentChallenge.id + 1;
 
-    setCompletedLevels(updatedCompleted);
-    setUnlockedLevel(updatedUnlocked);
-    saveProgress(updatedUnlocked, updatedCompleted);
+    // 🎯 Score reward based on difficulty
+    const gainedScore = scoreForDifficulty(currentChallenge.difficulty);
 
+    // 🎯 XP is *double* the score
+    const gainedXP = gainedScore * 2;
+
+    // Update local UI state
+    const newCompleted = [...completedLevels, currentChallenge.id];
+    setCompletedLevels(newCompleted);
+    setUnlockedLevel(next);
+    setScore(score + gainedScore);
+    setXp(xp + gainedXP);
+
+    // SAVE TO FIRESTORE (using username as you requested)
+    const userRef = doc(db, "users", username);
+    await updateDoc(userRef, {
+      completedLevels: newCompleted,
+      unlockedLevel: next,
+      score: score + gainedScore,
+      xp: xp + gainedXP,
+    });
+
+    Alert.alert("Great!", `Level ${currentChallenge.id} completed.`);
     setCurrentChallenge(null);
-    Alert.alert("Great!", `Level ${currentChallenge.level} completed.`);
-  };
+
+  } catch (err) {
+    console.log("Complete Error:", err);
+    Alert.alert("Error", "Something went wrong.");
+  }
+};
+
+
+
+
+  const canProceed =
+    executionResult &&
+    !executionResult.stderr &&
+    currentChallenge &&
+    outputsMatch(executionResult.output, currentChallenge.expectedOutput);
+
+  const LANGS = ["Java", "Python", "JavaScript"];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Adventure Mode</Text>
-
-      {/* Java only */}
+    <View style={styles.root}>
+      {/* BACK TO HOME */}
       {!currentChallenge && (
         <TouchableOpacity
-          style={[styles.categoryButton, selectedCategory === 'Java' && styles.selectedCategoryButton]}
-          onPress={() => setSelectedCategory('Java')}
+          style={styles.homeBackBtn}
+          onPress={() => goTo("Home")}
         >
-          <Text style={styles.buttonText}>Java</Text>
+          <Text style={styles.homeBackText}>◀ Home</Text>
         </TouchableOpacity>
       )}
 
-      {/* Levels */}
-      {selectedCategory && !currentChallenge && (
-        <ScrollView contentContainerStyle={styles.levelContainer}>
-          {Object.keys(CHALLENGES.Java).map((lvl) => {
-            const level = Number(lvl);
-            const challenge = CHALLENGES.Java[level];
-            const isUnlocked = level <= unlockedLevel;
-            const isCompleted = completedLevels.includes(level);
+      <Text style={styles.headerTitle}>Adventure Mode</Text>
 
-            return (
-              <TouchableOpacity
-                key={level}
-                disabled={!isUnlocked}
-                onPress={() => handleLevelPress(level)}
-                style={[
-                  styles.levelButton,
-                  !isUnlocked && styles.lockedButton,
-                  isCompleted && styles.completedButton,
-                  { borderLeftColor: difficultyColor(challenge.difficulty), borderLeftWidth: 6 }
-                ]}
-              >
-                <Text style={styles.levelButtonText}>
-                  Level {level} ({challenge.difficulty}) {isCompleted ? "✅" : ""}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      {/* Language Tabs */}
+      <View style={styles.langRow}>
+        {LANGS.map((lang) => {
+          const active = selectedLangTab === lang;
+          return (
+            <TouchableOpacity
+              key={lang}
+              onPress={() => selectCategory(lang)}
+              style={[styles.langTab, active && styles.langTabActive]}
+            >
+              <Text style={[styles.langText, active && styles.langTextActive]}>
+                {lang}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Level List */}
+      {!currentChallenge && (
+        <View style={styles.levelsArea}>
+          {loadingLevels ? (
+            <ActivityIndicator size="large" color="#FFD54F" />
+          ) : (
+            <ScrollView style={{ flexGrow: 1 }} contentContainerStyle={styles.levelList}>
+              {levels.length === 0 && (
+                <View style={styles.emptyCard}>
+                  <Text style={{ color: "#fff" }}>No levels available</Text>
+                </View>
+              )}
+
+              {levels.map((lvl) => {
+                const unlocked = lvl.id <= unlockedLevel;
+                const completed = completedLevels.includes(lvl.id);
+                return (
+                  <View key={lvl.id} style={styles.levelCardWrap}>
+                    <TouchableOpacity
+                      disabled={!unlocked}
+                      onPress={() => handleLevelPress(lvl.id)}
+                      style={[
+                        styles.levelCard,
+                        !unlocked && styles.levelLocked,
+                        completed && styles.levelCompleted,
+                      ]}
+                    >
+                      <View style={styles.cardLeft}>
+                        <View
+                          style={[
+                            styles.levelBadge,
+                            { backgroundColor: difficultyColor(lvl.difficulty) },
+                          ]}
+                        >
+                          <Text style={styles.levelBadgeText}>Lv {lvl.id}</Text>
+                        </View>
+
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.cardTitle}>
+                            {lvl.question || `Challenge ${lvl.id}`}
+                          </Text>
+                          <Text style={styles.cardSub}>{lvl.difficulty}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.cardRight}>
+                        {!unlocked ? (
+                          <Text style={styles.lockText}>🔒</Text>
+                        ) : completed ? (
+                          <Text style={styles.completeText}>✓</Text>
+                        ) : (
+                          <Text style={styles.playText}>▶</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
       )}
 
-      {/* Challenge */}
+      {/* CHALLENGE VIEW */}
       {currentChallenge && (
         <ScrollView style={styles.challengeBox}>
-          <Text style={styles.challengeTitle}>Level {currentChallenge.level}</Text>
-          <Text style={styles.challengeText}>{currentChallenge.question}</Text>
+          <View style={styles.challengeHeader}>
+            <Text style={styles.challengeTitle}>Level {currentChallenge.id}</Text>
+            <Text style={styles.challengeSubtitle}>{currentChallenge.question}</Text>
+          </View>
+
+          <Text style={styles.editorLabel}>Your Code</Text>
 
           <TextInput
             multiline
             value={codeInput}
             onChangeText={setCodeInput}
             style={styles.codeEditor}
+            textAlignVertical="top"
           />
 
           <TouchableOpacity
-            style={styles.runButton}
+            style={[styles.runButton, running && styles.buttonDisabled]}
             onPress={handleRunCode}
             disabled={running}
           >
-            {running ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Run Code ▶️</Text>}
+            {running ? (
+              <ActivityIndicator color="#222" />
+            ) : (
+              <Text style={styles.runText}>Run Code</Text>
+            )}
           </TouchableOpacity>
 
+          {/* Output */}
           {executionResult && (
-            <View style={[
-              styles.outputBox,
-              executionResult.stderr ? { backgroundColor: "#ffebee" } : { backgroundColor: "#e8f5e9" }
-            ]}>
-              <Text style={styles.outputText}>{executionResult.output}</Text>
-              {executionResult.stderr ? (
-                <Text style={{ color: "red" }}>{executionResult.stderr}</Text>
-              ) : null}
+            <View
+              style={[
+                styles.outputBox,
+                executionResult.stderr
+                  ? styles.outputError
+                  : styles.outputOk,
+              ]}
+            >
+              <Text style={styles.outputTitle}>
+                {executionResult.stderr ? "Error" : "Output"}
+              </Text>
+              <Text style={styles.outputText}>
+                {executionResult.stderr || executionResult.output}
+              </Text>
             </View>
           )}
 
           <TouchableOpacity
             onPress={handleCompleteLevel}
-            disabled={!executionResult || executionResult.stderr}
-            style={styles.completeButton}
+            disabled={!canProceed}
+            style={[
+              styles.proceedBtn,
+              !canProceed && styles.proceedDisabled,
+            ]}
           >
-            <Text style={styles.buttonText}>Mark as Done ✅</Text>
+            <Text style={styles.proceedText}>
+              {canProceed ? "Proceed to next level" : "Fix output to proceed"}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.reattemptButton, { backgroundColor: "#999" }]}
+            style={styles.backBtn}
             onPress={() => setCurrentChallenge(null)}
           >
-            <Text style={styles.buttonText}>Back</Text>
+            <Text style={styles.backText}>Back to levels</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -230,31 +392,190 @@ export default function AdventureScreen({ username }) {
   );
 }
 
-// Styles
+/* ---------- Styles ---------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: 60, paddingHorizontal: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50', textAlign: 'center', marginBottom: 20 },
+  root: {
+    flex: 1,
+    backgroundColor: "#081624",
+    paddingTop: Platform.OS === "android" ? 30 : 60,
+    paddingHorizontal: 16,
+  },
 
-  categoryButton: { backgroundColor: '#A5D6A7', paddingVertical: 15, borderRadius: 8, alignItems: 'center' },
-  selectedCategoryButton: { backgroundColor: '#4CAF50' },
-  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  homeBackBtn: {
+    position: "absolute",
+    top: Platform.OS === "android" ? 35 : 60,
+    left: 10,
+    zIndex: 999,
+    backgroundColor: "#123043",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#1e3a45",
+  },
+  homeBackText: {
+    color: "#cfeeea",
+    fontWeight: "800",
+  },
 
-  levelContainer: { paddingBottom: 20 },
-  levelButton: { backgroundColor: '#A5D6A7', paddingVertical: 15, marginVertical: 6, borderRadius: 8, alignItems: 'center' },
-  lockedButton: { backgroundColor: '#c8e6c9', opacity: 0.6 },
-  completedButton: { backgroundColor: '#4CAF50' },
-  levelButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  headerTitle: {
+    color: "#FFD54F",
+    fontSize: 22,
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 12,
+  },
 
-  challengeBox: { backgroundColor: '#fff', borderRadius: 10, padding: 20 },
-  challengeTitle: { fontSize: 20, fontWeight: 'bold', color: '#4CAF50', marginBottom: 10 },
-  challengeText: { fontSize: 16, color: '#333', marginBottom: 20 },
+  langRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  langTab: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#123043",
+    borderWidth: 1,
+    borderColor: "#1e3a45",
+  },
+  langTabActive: {
+    backgroundColor: "#0ea5a0",
+    borderColor: "#0ea5a0",
+  },
+  langText: {
+    color: "#cfeeea",
+    fontWeight: "700",
+  },
+  langTextActive: {
+    color: "#022c2c",
+  },
 
-  codeEditor: { height: 200, borderColor: '#4CAF50', borderWidth: 1, borderRadius: 8, padding: 10, backgroundColor: '#f0fff0', fontFamily: 'monospace' },
+  levelsArea: { flex: 1 },
+  levelList: { paddingBottom: 40 },
+  emptyCard: {
+    backgroundColor: "#23303a",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
 
-  runButton: { backgroundColor: '#4CAF50', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-  outputBox: { padding: 15, borderRadius: 8, marginTop: 15 },
-  outputText: { fontSize: 14 },
+  levelCardWrap: { marginBottom: 10 },
+  levelCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#08323f",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#113640",
+  },
+  levelLocked: { opacity: 0.4 },
+  levelCompleted: {
+    backgroundColor: "#092f1f",
+    borderColor: "#064e2a",
+  },
 
-  completeButton: { backgroundColor: '#4CAF50', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
-  reattemptButton: { backgroundColor: '#FFA726', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
+  cardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  levelBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelBadgeText: {
+    fontWeight: "900",
+    color: "#fff",
+  },
+
+  cardTitle: {
+    color: "#e6f7f5",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  cardSub: {
+    color: "#98bfc3",
+    fontSize: 12,
+  },
+
+  cardRight: { width: 60, alignItems: "flex-end" },
+  lockText: { color: "#ff8a80" },
+  completeText: { color: "#a6f3ae" },
+  playText: { color: "#ffd54f", fontWeight: "bold" },
+
+  challengeBox: {
+    marginTop: 10,
+    backgroundColor: "#071826",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#123640",
+  },
+
+  challengeHeader: { marginBottom: 10 },
+  challengeTitle: { color: "#ffd54f", fontSize: 18, fontWeight: "900" },
+  challengeSubtitle: { color: "#cfeeea", fontSize: 14, marginTop: 6 },
+
+  editorLabel: { color: "#98bfc3", marginTop: 12, marginBottom: 6 },
+
+  codeEditor: {
+    minHeight: 160,
+    backgroundColor: "#04131a",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#08303a",
+    padding: 12,
+    color: "#e6f7f5",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+
+  runButton: {
+    marginTop: 12,
+    backgroundColor: "#ffd54f",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  buttonDisabled: { opacity: 0.5 },
+
+  runText: { color: "#102020", fontWeight: "900" },
+
+  outputBox: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#112b2f",
+  },
+  outputOk: { backgroundColor: "#e6f9ee" },
+  outputError: { backgroundColor: "#fff0f0" },
+  outputTitle: { fontWeight: "700", marginBottom: 8 },
+  outputText: { color: "#222" },
+
+  proceedBtn: {
+    marginTop: 14,
+    backgroundColor: "#4caf50",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  proceedDisabled: { backgroundColor: "#7f8c8d" },
+  proceedText: { color: "#fff", fontWeight: "900" },
+
+  backBtn: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#26343a",
+  },
+  backText: { color: "#cfeeea" },
 });
