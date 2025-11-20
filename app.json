@@ -1,6 +1,5 @@
 {
   "expo": {
-    
     "name": "CodeChallenge",
     "slug": "CodeChallenge",
     "version": "1.0.0",
@@ -20,22 +19,22 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
-        
       },
       "edgeToEdgeEnabled": true,
       "package": "com.raygwapo.codechallenge",
-      "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "${GOOGLE_SERVICES_JSON}"
     },
     "web": {
       "favicon": "./assets/icon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "db49a6bc-79d7-43d1-9277-ba8a4b69b896"
-      }
-    },
     "plugins": [
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "04868e2d-3239-4e1a-9587-c02c412f7326"
+      }
+    },
+    "owner": "chan102022"
   }
 }
